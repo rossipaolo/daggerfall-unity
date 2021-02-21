@@ -34,19 +34,7 @@ namespace DaggerfallWorkshop.Game.Formulas
     /// </summary>
     public static class FormulaHelper
     {
-        private struct FormulaOverride
-        {
-            internal readonly Delegate Formula;
-            internal readonly Mod Provider;
-
-            internal FormulaOverride(Delegate formula, Mod provider)
-            {
-                Formula = formula;
-                Provider = provider;
-            }
-        }
-
-        readonly static Dictionary<string, FormulaOverride> overrides = new Dictionary<string, FormulaOverride>();
+        readonly static ModProvidedData<string, Delegate> overrides = new ModProvidedData<string, Delegate>();
 
         public static float specialInfectionChance = 0.6f;
 
@@ -2677,9 +2665,7 @@ namespace DaggerfallWorkshop.Game.Formulas
             if (del == null)
                 throw new InvalidCastException("formula is not a delegate.");
 
-            FormulaOverride formulaOverride;
-            if (!overrides.TryGetValue(formulaName, out formulaOverride) || formulaOverride.Provider.LoadPriority < provider.LoadPriority)
-                overrides[formulaName] = new FormulaOverride(del, provider);
+            overrides.Add(provider, formulaName, del);
         }
 
         /// <summary>
@@ -2692,18 +2678,17 @@ namespace DaggerfallWorkshop.Game.Formulas
         private static bool TryGetOverride<TDelegate>(string formulaName, out TDelegate formula)
             where TDelegate : class
         {
-            FormulaOverride formulaOverride;
-            if (overrides.TryGetValue(formulaName, out formulaOverride))
+            if (overrides.TryGetValue(formulaName, out ModProvidedDataElement<Delegate> formulaOverride))
             {
-                if ((formula = formulaOverride.Formula as TDelegate) != null)
+                if ((formula = formulaOverride as TDelegate) != null)
                     return true;
 
                 const string errorMessage = "Removed override for formula {0} provided by {1} because signature doesn't match (expected {2} and got {3}).";
-                Debug.LogErrorFormat(errorMessage, formulaName, formulaOverride.Provider.Title, typeof(TDelegate), formulaOverride.Formula.GetType());
+                Debug.LogErrorFormat(errorMessage, formulaName, formulaOverride.Mod.Title, typeof(TDelegate), formulaOverride.Value.GetType());
                 overrides.Remove(formulaName);
             }
 
-            formula = default(TDelegate);
+            formula = default;
             return false;
         }
 

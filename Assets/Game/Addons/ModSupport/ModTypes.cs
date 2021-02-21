@@ -391,4 +391,105 @@ namespace DaggerfallWorkshop.Game.Utility.ModSupport
             }
         }
     }
+
+    internal readonly struct ModProvidedDataElement<TValue>
+    {
+        internal Mod Mod { get; }
+        internal TValue Value { get; }
+
+        internal ModProvidedDataElement(Mod mod, TValue value)
+        {
+            Mod = mod;
+            Value = value;
+        }
+
+        internal bool IsOverriddenBy(Mod mod)
+        {
+            return Mod.LoadPriority < mod.LoadPriority;
+        }
+    }
+
+    /// <summary>
+    /// Simple data value provided by a mod, overridden according to load priority.
+    /// </summary>
+    /// <typeparam name="TValue">The type of data.</typeparam>
+    public sealed class ModProvidedData<TValue>
+    {
+        internal ModProvidedDataElement<TValue>? Element { get; private set; }
+
+        /// <summary>
+        /// Sets a new value provided by a mod.
+        /// </summary>
+        /// <param name="mod">The mod that provides data.</param>
+        /// <param name="value">The value to be set. The value can be <c>null</c> for reference types.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="mod"/> is <c>null</c>.</exception>
+        public void Set(Mod mod, TValue value)
+        {
+            if (mod == null)
+                throw new ArgumentNullException(nameof(mod));
+
+            if (!Element.HasValue || Element.Value.IsOverriddenBy(mod))
+                Element = new ModProvidedDataElement<TValue>(mod, value);
+        }
+
+        internal void Clear()
+        {
+            Element = default;
+        }
+    }
+
+    /// <summary>
+    /// Complex data provided by one or multiple mods, overridden according to load priority.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the key used to access the value.</typeparam>
+    /// <typeparam name="TValue">The type of the value.</typeparam>
+    public sealed class ModProvidedData<TKey, TValue>
+    {
+        private readonly Dictionary<TKey, ModProvidedDataElement<TValue>> data = new Dictionary<TKey, ModProvidedDataElement<TValue>>();
+
+        internal Dictionary<TKey, ModProvidedDataElement<TValue>>.KeyCollection Keys
+        {
+            get { return data.Keys; }
+        }
+
+        /// <summary>
+        /// Adds a new value provided by a mod.
+        /// </summary>
+        /// <param name="mod">The mod that provides data.</param>
+        /// <param name="key">The key of the element to add.</param>
+        /// <param name="value">The value of the element to add. The value can be <c>null</c> for reference types.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="mod"/> or <paramref name="key"/> is <c>null</c>.</exception>
+        public void Add(Mod mod, TKey key, TValue value)
+        {
+            if (mod == null)
+                throw new ArgumentNullException(nameof(mod));
+
+            if (key == null)
+                throw new ArgumentNullException(nameof(key));
+
+            if (!data.TryGetValue(key, out ModProvidedDataElement<TValue> element) || element.IsOverriddenBy(mod))
+                data[key] = new ModProvidedDataElement<TValue>(mod, value);
+        }
+
+        internal bool TryGetValue(TKey key, out ModProvidedDataElement<TValue> element)
+        {
+            if (key == null)
+                throw new ArgumentNullException(nameof(key));
+
+            return data.TryGetValue(key, out element);
+        }
+
+        internal bool Remove(TKey key)
+        {
+            if (key == null)
+                throw new ArgumentNullException(nameof(key));
+
+            return data.Remove(key);
+        }
+
+        internal void Clear()
+        {
+            data.Clear();
+        }
+    }
 }
